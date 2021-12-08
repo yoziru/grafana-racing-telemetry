@@ -1,6 +1,6 @@
 {
   "name": "grafana-simracing-telemetry-datasource",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Plugin for fetching telemetry data from simracing titles",
   "scripts": {
     "build": "grafana-toolkit plugin:build",
@@ -13,17 +13,16 @@
   "author": "Grafana",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@grafana/data": "8.0.3",
-    "@grafana/toolkit": "8.0.3",
-    "@grafana/runtime": "8.0.3",
-    "@grafana/ui": "8.0.3",
-    "@types/lodash": "latest",
-    "tslib": "2.2.0"
-  },
-  "resolutions": {
-    "rxjs": "6.6.3"
+    "@grafana/toolkit": "8.3.1",
+    "@types/lodash": "4.14.178",
+    "tslib": "2.3.1"
   },
   "engines": {
     "node": ">=14"
+  },
+  "dependencies": {
+    "@grafana/data": "8.3.1",
+    "@grafana/runtime": "8.3.1",
+    "@grafana/ui": "8.3.1"
   }
 }

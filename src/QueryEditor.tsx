@@ -1,8 +1,9 @@
 import { defaults } from 'lodash';
 
 import React, { PureComponent, SyntheticEvent } from 'react';
-import {InlineField, InlineSwitch, Select} from '@grafana/ui';
-import {QueryEditorProps, SelectableValue} from '@grafana/data';
+import { InlineField, InlineSwitch, Select } from '@grafana/ui';
+import { QueryEditorProps, SelectableValue } from '@grafana/data';
+
 import { DataSource } from './datasource';
 import { defaultQuery, MyDataSourceOptions, TelemetryQuery } from './types';
 import {dirtRallyOptions} from "./dirtRallyOptions";
@@ -79,18 +80,10 @@ export class QueryEditor extends PureComponent<Props> {
           defaultValue={'Time'}
         />
         <InlineField label="Enable streaming">
-          <InlineSwitch
-              value={withStreaming || false}
-              onChange={this.onWithStreamingChange}
-              css=""
-          />
+          <InlineSwitch value={withStreaming || false} onChange={this.onWithStreamingChange} />
         </InlineField>
         <InlineField label="Graph">
-          <InlineSwitch
-              value={graph}
-              onChange={this.onGraphChange}
-              css=""
-          />
+          <InlineSwitch value={graph} onChange={this.onGraphChange} />
         </InlineField>
       </div>
     );
