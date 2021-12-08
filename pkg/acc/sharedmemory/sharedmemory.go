@@ -1,11 +1,15 @@
+//go:build windows
+// +build windows
+
 package sharedmemory
 
 import (
 	"bytes"
 	"encoding/binary"
+	"time"
+
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"golang.org/x/sys/windows"
-	"time"
 
 	"github.com/alexeymaximov/go-bio/mmap"
 )

@@ -3,13 +3,16 @@ package main
 import (
 	"context"
 	"encoding/json"
-	acc "github.com/grafana/grafana-starter-datasource-backend/pkg/acc/sharedmemory"
-	"github.com/grafana/grafana-starter-datasource-backend/pkg/dirtrally"
-	iracing "github.com/grafana/grafana-starter-datasource-backend/pkg/iracing/sharedmemory"
 	"math/rand"
+	"strings"
 	"time"
 
+	// acc "github.com/grafana/grafana-starter-datasource-backend/pkg/acc/sharedmemory"
+	"github.com/grafana/grafana-starter-datasource-backend/pkg/dirtrally"
 	"github.com/grafana/grafana-starter-datasource-backend/pkg/forza"
+
+	// iracing "github.com/grafana/grafana-starter-datasource-backend/pkg/iracing/sharedmemory"
+
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
@@ -161,22 +164,22 @@ func (d *SimracingTelemetryDatasource) RunStream(ctx context.Context, req *backe
 	telemetryChan := make(chan dirtrally.TelemetryFrame)
 	telemetryErrorChan := make(chan error)
 
-	accTelemetryChan := make(chan acc.ACCTelemetry)
-	accCtrlChan := make(chan string)
+	// accTelemetryChan := make(chan acc.ACCTelemetry)
+	// accCtrlChan := make(chan string)
 
-	iracingTelemetryChan := make(chan iracing.IRacingTelemetryMap)
-	iracingCtrlChan := make(chan string)
+	// iracingTelemetryChan := make(chan iracing.IRacingTelemetryMap)
+	// iracingCtrlChan := make(chan string)
 
 	forzaTelemetryChan := make(chan forza.TelemetryFrame)
 	forzaTelemetryErrorChan := make(chan error)
 
 	if req.Path == "dirtRally2" {
 		go dirtrally.RunTelemetryServer(telemetryChan, telemetryErrorChan)
-	} else if req.Path == "acc" {
-		//go udpclient.RunClient(telemetryErrorChan)
-		go acc.RunSharedMemoryClient(accTelemetryChan, accCtrlChan, SharedMemoryUpdateInterval)
-	} else if req.Path == "iRacing" {
-		go iracing.RunSharedMemoryClient(iracingTelemetryChan, iracingCtrlChan, SharedMemoryUpdateInterval)
+		// } else ifq.Path == "acc" {
+		// 	//go udpclient.RunClient(telemetryErrorChan)
+		// 	go acc.RunSharedMemoryClient(accTelemetryChan, accCtrlChan, SharedMemoryUpdateInterval)
+		// } else if req.Path == "iRacing" {
+		// 	go iracing. reRunSharedMemoryClient(iracingTelemetryChan, iracingCtrlChan, SharedMemoryUpdateInterval)
 	} else if req.Path == "forzaHorizon5" {
 		go forza.RunTelemetryServer(forzaTelemetryChan, forzaTelemetryErrorChan)
 	}
@@ -188,11 +191,11 @@ func (d *SimracingTelemetryDatasource) RunStream(ctx context.Context, req *backe
 		select {
 		case <-ctx.Done():
 			log.DefaultLogger.Info("Context done, finish streaming", "path", req.Path)
-			if req.Path == "acc" {
-				accCtrlChan <- "stop"
-			} else if req.Path == "iRacing" {
-				iracingCtrlChan <- "stop"
-			}
+			// if req.Path == "acc" {
+			// 	accCtrlChan <- "stop"
+			// } else if req.Path == "iRacing" {
+			// 	iracingCtrlChan <- "stop"
+			// }
 			return nil
 
 		case telemetryFrame := <-telemetryChan:
@@ -223,45 +226,45 @@ func (d *SimracingTelemetryDatasource) RunStream(ctx context.Context, req *backe
 				continue
 			}
 
-		case mmapFrame := <-accTelemetryChan:
-			// Add a throttling for smooth animations
-			if time.Now().Before(lastTimeSent.Add(time.Second / 60)) {
-				// Drop frame
-				continue
-			}
+			// case mmapFrame := <-accTelemetryChan:
+			// 	// Add a throttling for smooth animations
+			// 	if time.Now().Before(lastTimeSent.Add(time.Second / 60)) {
+			// 		// Drop frame
+			// 		continue
+			// 	}
 
-			frame, err := acc.ACCTelemetryToDataFrame(mmapFrame)
-			if err != nil {
-				log.DefaultLogger.Debug("Error converting telemetry frame", "error", err)
-				continue
-			}
+			// 	frame, err := acc.ACCTelemetryToDataFrame(mmapFrame)
+			// 	if err != nil {
+			// 		log.DefaultLogger.Debug("Error converting telemetry frame", "error", err)
+			// 		continue
+			// 	}
 
-			lastTimeSent = time.Now()
-			err = sender.SendFrame(frame, data.IncludeAll)
-			if err != nil {
-				log.DefaultLogger.Error("Error sending frame", "error", err)
-				continue
-			}
+			// 	lastTimeSent = time.Now()
+			// 	err = sender.SendFrame(frame, data.IncludeAll)
+			// 	if err != nil {
+			// 		log.DefaultLogger.Error("Error sending frame", "error", err)
+			// 		continue
+			// 	}
 
-		case telemetryFrame := <-iracingTelemetryChan:
-			// Add a throttling for smooth animations
-			if time.Now().Before(lastTimeSent.Add(time.Second / 60)) {
-				// Drop frame
-				continue
-			}
+			// case telemetryFrame := <-iracingTelemetryChan:
+			// 	// Add a throttling for smooth animations
+			// 	if time.Now().Before(lastTimeSent.Add(time.Second / 60)) {
+			// 		// Drop frame
+			// 		continue
+			// 	}
 
-			frame, err := iracing.TelemetryToDataFrame(telemetryFrame)
-			if err != nil {
-				log.DefaultLogger.Debug("Error converting telemetry frame", "error", err)
-				continue
-			}
+			// 	frame, err := iracing.TelemetryToDataFrame(telemetryFrame)
+			// 	if err != nil {
+			// 		log.DefaultLogger.Debug("Error converting telemetry frame", "error", err)
+			// 		continue
+			// 	}
 
-			lastTimeSent = time.Now()
-			err = sender.SendFrame(frame, data.IncludeAll)
-			if err != nil {
-				log.DefaultLogger.Error("Error sending frame", "error", err)
-				continue
-			}
+			// 	lastTimeSent = time.Now()
+			// 	err = sender.SendFrame(frame, data.IncludeAll)
+			// 	if err != nil {
+			// 		log.DefaultLogger.Error("Error sending frame", "error", err)
+			// 		continue
+			// 	}
 		}
 	}
 }
