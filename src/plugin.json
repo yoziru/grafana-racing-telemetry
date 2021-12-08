@@ -5,6 +5,7 @@
   "id": "grafana-simracing-telemetry-datasource",
   "metrics": true,
   "backend": true,
+  "queryOptions": {"maxDataPoints": true},
   "executable": "gpx_simracing-telemetry-datasource",
   "info": {
     "description": "Plugin for fetching telemetry data from simracing titles",
