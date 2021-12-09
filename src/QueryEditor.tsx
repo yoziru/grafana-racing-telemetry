@@ -3,8 +3,6 @@ import React, { FC, SyntheticEvent } from 'react';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { InlineField, InlineSwitch, Select } from '@grafana/ui';
 
-import { defaults } from 'lodash';
-
 import { accOptions } from './accOptions';
 import { DataSource } from './datasource';
 import { dirtRallyOptions } from './dirtRallyOptions';
@@ -22,7 +20,10 @@ export const sourceOptions = [
 type Props = QueryEditorProps<DataSource, TelemetryQuery, MyDataSourceJsonData>;
 
 export const QueryEditor: FC<Props> = (props: Props) => {
-  const query = defaults(props.query, defaultQuery);
+  const query = {
+    ...defaultQuery,
+    ...props.query,
+  };
   const { telemetry, source, recording, withStreaming, graph } = query;
 
   let options = dirtRallyOptions;
