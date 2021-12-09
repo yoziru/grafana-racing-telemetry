@@ -19,6 +19,10 @@ interface RecordingsResponse {
   recordings: string[];
 }
 
+interface Filter {
+  fields?: string[];
+}
+
 export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSourceJsonData> {
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceJsonData>) {
     super(instanceSettings);
@@ -38,15 +42,8 @@ export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSour
       }
 
       if (target.withStreaming ?? true) {
-        // const templatedTarget = this.applyTemplateVariables(target)
         const { telemetry, graph } = target;
         const recording = getTemplateSrv().replace(target.recording);
-        // if (!recording) {
-        //   recording = getTemplateSrv().replace("$recording");
-        // }
-        // if (recording === "$recording") {
-        //   recording= "live"
-        // }
         const telemetryField = telemetry ?? 'Speed';
 
         const channel =
@@ -58,21 +55,20 @@ export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSour
           continue;
         }
 
-        // const maxLength = request.maxDataPoints ?? 500;
         // Reduce buffer size to improve performance on large dashboards
-        const maxLength = graph ? request.maxDataPoints ?? 500 : 2;
+        const maxLength = graph ? request.maxDataPoints : 1;
         const buffer: StreamingFrameOptions = {
           maxDelta: request.range.to.valueOf() - request.range.from.valueOf(),
           maxLength,
         };
 
-        const filter = {
-          fields: ['time', telemetryField],
-        };
-        // if (telemetry === '*') {
-        //   // for debugging purposes
-        //   filter = null;
-        // }
+        const filter: Filter | undefined =
+          telemetry === '*'
+            ? // for debugging purposes
+              undefined
+            : {
+                fields: ['time', telemetryField],
+              };
 
         queries.push(
           getGrafanaLiveSrv().getDataStream({
@@ -88,8 +84,7 @@ export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSour
     // With a single query just return the results
     if (queries.length === 1) {
       return queries[0];
-    }
-    if (queries.length > 1) {
+    } else if (queries.length > 1) {
       return merge(...queries);
     }
     return of(); // nothing
