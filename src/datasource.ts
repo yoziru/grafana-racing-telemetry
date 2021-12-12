@@ -35,7 +35,7 @@ export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSour
   }
 
   query(request: DataQueryRequest<TelemetryQuery>): Observable<DataQueryResponse> {
-    const queries: Array<Observable<DataQueryResponse>> = [];
+    const results: Array<Observable<DataQueryResponse>> = [];
     for (const target of request.targets) {
       if (target.hide ?? false) {
         continue;
@@ -44,7 +44,9 @@ export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSour
       if (target.withStreaming ?? true) {
         const { telemetry, graph } = target;
         const recording = getTemplateSrv().replace(target.recording);
-        const telemetryField = telemetry ?? 'Speed';
+        if (telemetry.length === 0) {
+          throw 'No fields defined in query';
+        }
 
         const channel =
           recording.length > 0 && recording !== 'live'
@@ -62,15 +64,11 @@ export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSour
           maxLength,
         };
 
-        const filter: Filter | undefined =
-          telemetry === '*'
-            ? // for debugging purposes
-              undefined
-            : {
-                fields: ['time', telemetryField],
-              };
+        const filter: Filter = {
+          fields: ['time'].concat(telemetry),
+        };
 
-        queries.push(
+        results.push(
           getGrafanaLiveSrv().getDataStream({
             key: `${request.requestId}.${counter++}`,
             addr: addr,
@@ -82,10 +80,10 @@ export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSour
     }
 
     // With a single query just return the results
-    if (queries.length === 1) {
-      return queries[0];
-    } else if (queries.length > 1) {
-      return merge(...queries);
+    if (results.length === 1) {
+      return results[0];
+    } else if (results.length > 1) {
+      return merge(...results);
     }
     return of(); // nothing
   }

@@ -1,7 +1,7 @@
 import React, { FC, SyntheticEvent } from 'react';
 
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
-import { InlineField, InlineSwitch, Select } from '@grafana/ui';
+import { InlineField, InlineSwitch, MultiSelect, Select } from '@grafana/ui';
 
 import { accOptions } from './accOptions';
 import { DataSource } from './datasource';
@@ -38,16 +38,16 @@ export const QueryEditor: FC<Props> = (props: Props) => {
   const recordings = ['live', '$recording'];
   const recordingOptions = recordings.map((o) => ({ label: o, value: o }));
 
-  const onTelemetryChange = (option: SelectableValue<string>): void => {
+  const onTelemetryChange = (option: Array<SelectableValue<string>>): void => {
     const { onChange, onRunQuery } = props;
-    onChange({ ...query, telemetry: option.value });
+    onChange({ ...query, telemetry: Array.from(option.map((o) => o.value).filter((o): o is string => Boolean(o))) });
     // executes the query
     onRunQuery();
   };
 
   const onSourceChange = (option: SelectableValue<string>): void => {
     const { onChange, onRunQuery } = props;
-    onChange({ ...query, source: option.value ?? '' });
+    onChange({ ...query, source: option.value ?? 'live' });
     onRunQuery();
   };
 
@@ -74,19 +74,23 @@ export const QueryEditor: FC<Props> = (props: Props) => {
   return (
     <>
       <div className="gf-form">
+        <InlineField label="Fields">
+          <MultiSelect options={options} value={telemetry} onChange={onTelemetryChange} defaultValue={[]} />
+        </InlineField>
+      </div>
+      <div className="gf-form">
         <InlineField label="Source">
-          <Select width={25} options={sourceOptions} value={source} onChange={onSourceChange} defaultValue={'acc'} />
+          <Select options={sourceOptions} value={source} onChange={onSourceChange} defaultValue={'acc'} />
         </InlineField>
         <InlineField label="From">
           <Select
-            width={25}
             options={recordingOptions}
             value={recording}
+            allowCustomValue={true}
             onChange={onRecordingChange}
             defaultValue={'live'}
           />
         </InlineField>
-        <Select width={25} options={options} value={telemetry} onChange={onTelemetryChange} defaultValue={'Time'} />
         <InlineField label="Enable streaming">
           <InlineSwitch value={withStreaming ?? false} onChange={onWithStreamingChange} />
         </InlineField>

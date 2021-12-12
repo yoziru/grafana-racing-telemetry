@@ -1,7 +1,7 @@
 import { DataQuery, DataSourceJsonData, DataSourceSettings } from '@grafana/data';
 
 export interface TelemetryQuery extends DataQuery {
-  telemetry?: string;
+  telemetry: string[];
   source: string;
   recording?: string;
   withStreaming: boolean;
@@ -9,7 +9,7 @@ export interface TelemetryQuery extends DataQuery {
 }
 
 export const defaultQuery: Partial<TelemetryQuery> = {
-  telemetry: 'Speed',
+  telemetry: [],
   source: 'forzaHorizon5',
   recording: 'live',
   withStreaming: true,
