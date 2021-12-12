@@ -676,29 +676,11 @@
           "hide": false,
           "refId": "B",
           "source": "acc",
-          "telemetry": "BestTime",
-          "withStreaming": true
-        },
-        {
-          "hide": false,
-          "refId": "A",
-          "source": "acc",
-          "telemetry": "LastTime",
-          "withStreaming": true
-        },
-        {
-          "hide": false,
-          "refId": "D",
-          "source": "acc",
-          "telemetry": "EstimatedLapTime",
+          "telemetry": ["BestTime", "LastTime", "EstimatedLapTime"],
           "withStreaming": true
         }
       ],
       "transformations": [
-        {
-          "id": "merge",
-          "options": {}
-        },
         {
           "id": "reduce",
           "options": {
