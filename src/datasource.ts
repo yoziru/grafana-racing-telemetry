@@ -5,6 +5,7 @@ import {
   isValidLiveChannelAddress,
   MetricFindValue,
   parseLiveChannelAddress,
+  StreamingFrameAction,
   StreamingFrameOptions,
 } from '@grafana/data';
 import { DataSourceWithBackend, getGrafanaLiveSrv, getTemplateSrv } from '@grafana/runtime';
@@ -62,6 +63,7 @@ export class DataSource extends DataSourceWithBackend<TelemetryQuery, MyDataSour
         const buffer: StreamingFrameOptions = {
           maxDelta: request.range.to.valueOf() - request.range.from.valueOf(),
           maxLength,
+          action: graph ? StreamingFrameAction.Append : StreamingFrameAction.Replace,
         };
 
         const filter: Filter = {
