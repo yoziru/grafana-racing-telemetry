@@ -1,9 +1,10 @@
 import { DataSourcePlugin } from '@grafana/data';
-import { DataSource } from './datasource';
-import { ConfigEditor } from './ConfigEditor';
-import { QueryEditor } from './QueryEditor';
-import { TelemetryQuery, MyDataSourceOptions } from './types';
 
-export const plugin = new DataSourcePlugin<DataSource, TelemetryQuery, MyDataSourceOptions>(DataSource)
+import { ConfigEditor } from './ConfigEditor';
+import { DataSource } from './datasource';
+import { QueryEditor } from './QueryEditor';
+import { TelemetryQuery, MyDataSourceJsonData } from './types';
+
+export const plugin = new DataSourcePlugin<DataSource, TelemetryQuery, MyDataSourceJsonData>(DataSource)
   .setConfigEditor(ConfigEditor)
   .setQueryEditor(QueryEditor);

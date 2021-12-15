@@ -1,15 +1,17 @@
-import { DataQuery, DataSourceJsonData } from '@grafana/data';
+import { DataQuery, DataSourceJsonData, DataSourceSettings } from '@grafana/data';
 
 export interface TelemetryQuery extends DataQuery {
   telemetry?: string;
-  source?: string;
+  source: string;
+  recording?: string;
   withStreaming: boolean;
   graph: boolean;
 }
 
 export const defaultQuery: Partial<TelemetryQuery> = {
-  telemetry: 'SpeedKmh',
-  source: 'acc',
+  telemetry: 'Speed',
+  source: 'forzaHorizon5',
+  recording: 'live',
   withStreaming: true,
   graph: false,
 };
@@ -17,13 +19,15 @@ export const defaultQuery: Partial<TelemetryQuery> = {
 /**
  * These are options configured for each DataSource instance
  */
-export interface MyDataSourceOptions extends DataSourceJsonData {
-  path?: string;
+export interface MyDataSourceJsonData extends DataSourceJsonData {
+  recordingBasePath?: string;
+  recordingBufferDataPoints?: number;
 }
 
-/**
- * Value that is used in the backend, but never sent over HTTP to the frontend
- */
-export interface MySecureJsonData {
-  apiKey?: string;
-}
+export const defaultMyDataSourceJsonData: Partial<MyDataSourceJsonData> = {
+  recordingBasePath: '/var/lib/grafana/simracing-telemetry-recordings',
+  recordingBufferDataPoints: 3600,
+};
+
+export interface MyDataSourceSecureJsonData {}
+export type MyDataSourceSettings = DataSourceSettings<MyDataSourceJsonData, MyDataSourceSecureJsonData>;

@@ -3,19 +3,20 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"math/rand"
 	"strings"
 	"time"
 
 	// acc "github.com/grafana/grafana-starter-datasource-backend/pkg/acc/sharedmemory"
 	"github.com/grafana/grafana-starter-datasource-backend/pkg/dirtrally"
 	"github.com/grafana/grafana-starter-datasource-backend/pkg/forza"
+	"github.com/grafana/grafana-starter-datasource-backend/pkg/utils"
 
 	// iracing "github.com/grafana/grafana-starter-datasource-backend/pkg/iracing/sharedmemory"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/resource"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 	"github.com/grafana/grafana-plugin-sdk-go/live"
 )
@@ -33,6 +34,7 @@ var SharedMemoryUpdateInterval = time.Second / 60
 // instance created upon datasource settings changed.
 var (
 	_ backend.QueryDataHandler      = (*SimracingTelemetryDatasource)(nil)
+	_ backend.CallResourceHandler   = (*SimracingTelemetryDatasource)(nil)
 	_ backend.CheckHealthHandler    = (*SimracingTelemetryDatasource)(nil)
 	_ backend.StreamHandler         = (*SimracingTelemetryDatasource)(nil)
 	_ instancemgmt.InstanceDisposer = (*SimracingTelemetryDatasource)(nil)
@@ -40,12 +42,15 @@ var (
 
 // NewSimracingTelemetryDatasource creates a new datasource instance.
 func NewSimracingTelemetryDatasource(_ backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
-	return &SimracingTelemetryDatasource{}, nil
+	recordingChan := make(chan bool, 1)
+	return &SimracingTelemetryDatasource{recordingChan: recordingChan}, nil
 }
 
 // SimracingTelemetryDatasource is an example datasource which can respond to data queries, reports
 // its health and has streaming skills.
-type SimracingTelemetryDatasource struct{}
+type SimracingTelemetryDatasource struct {
+	recordingChan chan bool
+}
 
 // Dispose here tells plugin SDK that plugin wants to clean up resources when a new instance
 // created. As soon as datasource settings change detected by SDK old datasource instance will
@@ -83,6 +88,7 @@ type queryModel struct {
 
 func (d *SimracingTelemetryDatasource) query(_ context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
 	response := backend.DataResponse{}
+	log.DefaultLogger.Info("Query sent", "pCtx", pCtx, "query", query)
 
 	// Unmarshal the JSON into our queryModel.
 	var qm queryModel
@@ -124,6 +130,43 @@ func (d *SimracingTelemetryDatasource) query(_ context.Context, pCtx backend.Plu
 	return response
 }
 
+// Resource handler
+
+type simpleJsonResponse struct {
+	Message string `json:"message"`
+}
+type recordingsJsonData struct {
+	Recordings []string `json:"recordings"`
+}
+
+func (d *SimracingTelemetryDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
+	log.DefaultLogger.Info("CallResource called", "request", req)
+	dsjd := dataSourceJSONData{}
+	err := json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &dsjd)
+	if err != nil {
+		log.DefaultLogger.Error("Error parsing DataSourceInstanceSettings", "error", err)
+		return err
+	}
+
+	dvr := utils.CreateDiskvRecorder(dsjd.RecordingBasePath, dsjd.RecordingBufferDataPoints, d.recordingChan)
+	log.DefaultLogger.Info("Creating DVR", "DataSourceInstanceSettings", dsjd, "BasePath", dvr.Store.BasePath, "RecordingBufferDataPoints", dvr.RecordingBufferDataPoints)
+
+	if req.Path == "recordings" {
+		diskvIndexChan := dvr.Store.KeysPrefix("forza", nil)
+		var diskvIndex []string
+		diskvIndex = append(diskvIndex, "live")
+		for v := range diskvIndexChan {
+			diskvIndex = append(diskvIndex, v)
+		}
+		jd := recordingsJsonData{Recordings: diskvIndex}
+		resource.SendJSON(sender, jd)
+	} else if req.Path == "record" {
+		d.recordingChan <- true
+		return resource.SendJSON(sender, simpleJsonResponse{Message: "Recording started"})
+	}
+	return nil
+}
+
 // CheckHealth handles health checks sent from Grafana to the plugin.
 // The main use case for these health checks is the test button on the
 // datasource configuration page which allows users to verify that
@@ -133,11 +176,6 @@ func (d *SimracingTelemetryDatasource) CheckHealth(_ context.Context, req *backe
 
 	var status = backend.HealthStatusOk
 	var message = "Data source is working"
-
-	if rand.Int()%2 == 0 {
-		status = backend.HealthStatusError
-		message = "randomized error"
-	}
 
 	return &backend.CheckHealthResult{
 		Status:  status,
@@ -156,10 +194,29 @@ func (d *SimracingTelemetryDatasource) SubscribeStream(_ context.Context, req *b
 	}, nil
 }
 
+type dataSourceJSONData struct {
+	RecordingBasePath         string `json:"recordingBasePath"`
+	RecordingBufferDataPoints int    `json:"recordingBufferDataPoints"`
+}
+
 // RunStream is called once for any open channel. Results are shared with everyone
 // subscribed to the same channel.
 func (d *SimracingTelemetryDatasource) RunStream(ctx context.Context, req *backend.RunStreamRequest, sender *backend.StreamSender) error {
 	log.DefaultLogger.Info("RunStream called", "request", req)
+	dsjd := dataSourceJSONData{}
+	err := json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &dsjd)
+	if err != nil {
+		log.DefaultLogger.Error("Error parsing DataSourceInstanceSettings", "error", err)
+		return err
+	}
+	dvr := utils.CreateDiskvRecorder(dsjd.RecordingBasePath, dsjd.RecordingBufferDataPoints, d.recordingChan)
+	split := strings.Split(req.Path, "/")
+	gamePath := split[0]
+
+	recordingPath := ""
+	if len(split) > 1 {
+		recordingPath = split[1]
+	}
 
 	telemetryChan := make(chan dirtrally.TelemetryFrame)
 	telemetryErrorChan := make(chan error)
@@ -173,22 +230,33 @@ func (d *SimracingTelemetryDatasource) RunStream(ctx context.Context, req *backe
 	forzaTelemetryChan := make(chan forza.TelemetryFrame)
 	forzaTelemetryErrorChan := make(chan error)
 
-	if req.Path == "dirtRally2" {
+	forzaPlaybackTelemetryChan := make(chan forza.TelemetryFrame)
+	forzaPlaybackTelemetryErrorChan := make(chan error)
+
+	if gamePath == "dirtRally2" {
 		go dirtrally.RunTelemetryServer(telemetryChan, telemetryErrorChan)
-		// } else ifq.Path == "acc" {
+		// } else if gamePath == "acc" {
 		// 	//go udpclient.RunClient(telemetryErrorChan)
 		// 	go acc.RunSharedMemoryClient(accTelemetryChan, accCtrlChan, SharedMemoryUpdateInterval)
-		// } else if req.Path == "iRacing" {
-		// 	go iracing. reRunSharedMemoryClient(iracingTelemetryChan, iracingCtrlChan, SharedMemoryUpdateInterval)
-	} else if req.Path == "forzaHorizon5" {
-		go forza.RunTelemetryServer(forzaTelemetryChan, forzaTelemetryErrorChan)
+		// } else if gamePath == "iRacing" {
+		// 	go iracing.RunSharedMemoryClient(iracingTelemetryChan, iracingCtrlChan, SharedMemoryUpdateInterval)
+	} else if gamePath == "forzaHorizon5" {
+		log.DefaultLogger.Info("Forza Horizon 5 MODE", "recordingPath", recordingPath)
+		if recordingPath != "" {
+			go forza.RunPlaybackServer(recordingPath, forzaPlaybackTelemetryChan, forzaPlaybackTelemetryErrorChan, dvr)
+		} else {
+			go forza.RunTelemetryServer(forzaTelemetryChan, forzaTelemetryErrorChan, dvr)
+		}
 	}
-
 	lastTimeSent := time.Now()
 
 	// Stream data frames periodically till stream closed by Grafana.
 	for {
 		select {
+		case err := <-forzaPlaybackTelemetryErrorChan:
+			log.DefaultLogger.Info("Playback error", "err", err)
+			return nil
+
 		case <-ctx.Done():
 			log.DefaultLogger.Info("Context done, finish streaming", "path", req.Path)
 			// if req.Path == "acc" {
@@ -213,6 +281,20 @@ func (d *SimracingTelemetryDatasource) RunStream(ctx context.Context, req *backe
 			}
 
 		case telemetryFrame := <-forzaTelemetryChan:
+			if time.Now().Before(lastTimeSent.Add(time.Second / 60)) {
+				// Drop frame
+				continue
+			}
+
+			frame := forza.TelemetryToDataFrame(telemetryFrame)
+			lastTimeSent = time.Now()
+			err := sender.SendFrame(frame, data.IncludeAll)
+			if err != nil {
+				log.DefaultLogger.Error("Error sending frame", "error", err)
+				continue
+			}
+
+		case telemetryFrame := <-forzaPlaybackTelemetryChan:
 			if time.Now().Before(lastTimeSent.Add(time.Second / 60)) {
 				// Drop frame
 				continue

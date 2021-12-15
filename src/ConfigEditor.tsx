@@ -1,83 +1,71 @@
-import React, { ChangeEvent, PureComponent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
-import { MyDataSourceOptions, MySecureJsonData } from './types';
+import React, { ChangeEvent, FC } from 'react';
 
-const { SecretFormField, FormField } = LegacyForms;
+import { DataSourcePluginOptionsEditorProps, onUpdateDatasourceJsonDataOption } from '@grafana/data';
+import { Input, InlineField, FieldSet } from '@grafana/ui';
 
-interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions> {}
+import { MyDataSourceJsonData, defaultMyDataSourceJsonData, MyDataSourceSettings } from './types';
 
-interface State {}
+interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceJsonData> {}
 
-export class ConfigEditor extends PureComponent<Props, State> {
-  onPathChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onOptionsChange, options } = this.props;
-    const jsonData = {
-      ...options.jsonData,
-      path: event.target.value,
-    };
-    onOptionsChange({ ...options, jsonData });
-  };
-
-  // Secure field (only sent to the backend)
-  onAPIKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onOptionsChange, options } = this.props;
-    onOptionsChange({
-      ...options,
-      secureJsonData: {
-        apiKey: event.target.value,
-      },
-    });
-  };
-
-  onResetAPIKey = () => {
-    const { onOptionsChange, options } = this.props;
-    onOptionsChange({
-      ...options,
-      secureJsonFields: {
-        ...options.secureJsonFields,
-        apiKey: false,
-      },
-      secureJsonData: {
-        ...options.secureJsonData,
-        apiKey: '',
-      },
-    });
-  };
-
-  render() {
-    const { options } = this.props;
-    const { jsonData, secureJsonFields } = options;
-    const secureJsonData = (options.secureJsonData || {}) as MySecureJsonData;
-
-    return (
-      <div className="gf-form-group">
-        <div className="gf-form">
-          <FormField
-            label="Path"
-            labelWidth={6}
-            inputWidth={20}
-            onChange={this.onPathChange}
-            value={jsonData.path || ''}
-            placeholder="json field returned to frontend"
-          />
-        </div>
-
-        <div className="gf-form-inline">
-          <div className="gf-form">
-            <SecretFormField
-              isConfigured={(secureJsonFields && secureJsonFields.apiKey) as boolean}
-              value={secureJsonData.apiKey || ''}
-              label="API Key"
-              placeholder="secure json field (backend only)"
-              labelWidth={6}
-              inputWidth={20}
-              onReset={this.onResetAPIKey}
-              onChange={this.onAPIKeyChange}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
+export interface DataSourceConfigProps<J = MyDataSourceJsonData> extends DataSourcePluginOptionsEditorProps<J> {
+  defaultRecordingBasePath?: string;
+  defaultRecordingBufferDataPoints?: number;
 }
+
+export const DataSourceConfig: FC<DataSourceConfigProps> = (props: DataSourceConfigProps) => {
+  const {
+    options,
+    onOptionsChange,
+    defaultRecordingBasePath = defaultMyDataSourceJsonData.recordingBasePath,
+    defaultRecordingBufferDataPoints = defaultMyDataSourceJsonData.recordingBufferDataPoints,
+  } = props;
+
+  const onRecordingBufferDataPointsChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onOptionsChange({
+      ...options,
+      jsonData: {
+        ...options.jsonData,
+        recordingBufferDataPoints: parseInt(event.target.value, 10),
+      },
+    });
+  };
+
+  return (
+    <FieldSet label="Connection Details" data-testid="connection-config">
+      <InlineField label="Recording Base Path" labelWidth={28} tooltip="Where to store recordings of telemetry data">
+        <Input
+          className="width-30"
+          placeholder={defaultRecordingBasePath}
+          value={options.jsonData.recordingBasePath ?? defaultRecordingBasePath}
+          onChange={onUpdateDatasourceJsonDataOption(props, 'recordingBasePath')}
+        />
+      </InlineField>
+
+      <InlineField
+        label="Recording Buffer Data Points"
+        labelWidth={28}
+        tooltip="How many datapoints to store on each recording (rolling buffer, e.g. 3600 datapoints at 60 FPS results in a 1 minute recording)"
+      >
+        <Input
+          className="width-30"
+          type="number"
+          placeholder={defaultRecordingBufferDataPoints?.toString()}
+          value={options.jsonData.recordingBufferDataPoints ?? defaultRecordingBufferDataPoints}
+          onChange={onRecordingBufferDataPointsChange}
+        />
+      </InlineField>
+    </FieldSet>
+  );
+};
+
+export const ConfigEditor: FC<Props> = (props: Props) => {
+  const onOptionsChange = (options: MyDataSourceSettings) => {
+    props.onOptionsChange(options);
+  };
+
+  return (
+    <>
+      <DataSourceConfig {...props} onOptionsChange={onOptionsChange} />
+    </>
+  );
+};

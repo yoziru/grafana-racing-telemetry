@@ -10,6 +10,8 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
+const PacketSize int = 324
+
 type TelemetryFrame struct {
 	IsRaceOn                             int32  // = 1 when race is on. = 0 when in menus/race stopped … // s32
 	TimestampMS                          uint32 //Can overflow to 0 eventually

@@ -1,15 +1,16 @@
+import React, { FC, SyntheticEvent } from 'react';
+
+import { QueryEditorProps, SelectableValue } from '@grafana/data';
+import { InlineField, InlineSwitch, Select } from '@grafana/ui';
+
 import { defaults } from 'lodash';
 
-import React, { PureComponent, SyntheticEvent } from 'react';
-import { InlineField, InlineSwitch, Select } from '@grafana/ui';
-import { QueryEditorProps, SelectableValue } from '@grafana/data';
-
+import { accOptions } from './accOptions';
 import { DataSource } from './datasource';
-import { defaultQuery, MyDataSourceOptions, TelemetryQuery } from './types';
-import {dirtRallyOptions} from "./dirtRallyOptions";
-import {accOptions} from "./accOptions";
-import {iRacingOptions} from "./iRacingOptions";
-import {forzaHorizonOptions} from "./forzaHorizonOptions";
+import { dirtRallyOptions } from './dirtRallyOptions';
+import { forzaHorizonOptions } from './forzaHorizonOptions';
+import { iRacingOptions } from './iRacingOptions';
+import { defaultQuery, MyDataSourceJsonData, TelemetryQuery } from './types';
 
 export const sourceOptions = [
   { label: 'DiRT Rally 2.0', value: 'dirtRally2' },
@@ -18,74 +19,80 @@ export const sourceOptions = [
   { label: 'iRacing', value: 'iRacing' },
 ];
 
-type Props = QueryEditorProps<DataSource, TelemetryQuery, MyDataSourceOptions>;
+type Props = QueryEditorProps<DataSource, TelemetryQuery, MyDataSourceJsonData>;
 
-export class QueryEditor extends PureComponent<Props> {
-  onTelemetryChange = (option: SelectableValue<string>) => {
-    const { onChange, query, onRunQuery } = this.props;
+export const QueryEditor: FC<Props> = (props: Props) => {
+  const query = defaults(props.query, defaultQuery);
+  const { telemetry, source, recording, withStreaming, graph } = query;
+
+  let options = dirtRallyOptions;
+  if (source === 'acc') {
+    options = accOptions;
+  } else if (source === 'forzaHorizon5') {
+    options = forzaHorizonOptions;
+  } else if (source === 'iRacing') {
+    options = iRacingOptions;
+  }
+
+  const recordings = ['live', '$recording'];
+  const recordingOptions = recordings.map((o) => ({ label: o, value: o }));
+
+  const onTelemetryChange = (option: SelectableValue<string>): void => {
+    const { onChange, onRunQuery } = props;
     onChange({ ...query, telemetry: option.value });
     // executes the query
     onRunQuery();
   };
 
-  onSourceChange = (option: SelectableValue<string>) => {
-    const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, source: option.value });
+  const onSourceChange = (option: SelectableValue<string>): void => {
+    const { onChange, onRunQuery } = props;
+    onChange({ ...query, source: option.value ?? '' });
     onRunQuery();
   };
 
-  onWithStreamingChange = (event: SyntheticEvent<HTMLInputElement>) => {
-    const { onChange, query, onRunQuery } = this.props;
+  const onRecordingChange = (option: SelectableValue<string>): void => {
+    const { onChange, onRunQuery } = props;
+    onChange({ ...query, recording: option.value });
+    onRunQuery();
+  };
+
+  const onWithStreamingChange = (event: SyntheticEvent<HTMLInputElement>): void => {
+    const { onChange, onRunQuery } = props;
     onChange({ ...query, withStreaming: event.currentTarget.checked });
     // executes the query
     onRunQuery();
   };
 
-  onGraphChange = (event: SyntheticEvent<HTMLInputElement>) => {
-    const { onChange, query, onRunQuery } = this.props;
+  const onGraphChange = (event: SyntheticEvent<HTMLInputElement>): void => {
+    const { onChange, onRunQuery } = props;
     onChange({ ...query, graph: event.currentTarget.checked });
     // executes the query
     onRunQuery();
   };
 
-  render() {
-    const query = defaults(this.props.query, defaultQuery);
-    const { telemetry, source, withStreaming, graph } = query;
-
-    let options = dirtRallyOptions;
-    if (source === 'acc') {
-      options = accOptions;
-    } else if (source === 'forzaHorizon5') {
-      options = forzaHorizonOptions;
-    } else if (source === 'iRacing') {
-      options = iRacingOptions;
-    }
-
-    return (
+  return (
+    <>
       <div className="gf-form">
         <InlineField label="Source">
+          <Select width={25} options={sourceOptions} value={source} onChange={onSourceChange} defaultValue={'acc'} />
+        </InlineField>
+        <InlineField label="From">
           <Select
-              width={25}
-              options={sourceOptions}
-              value={source}
-              onChange={this.onSourceChange}
-              defaultValue={'acc'}
+            width={25}
+            options={recordingOptions}
+            value={recording}
+            onChange={onRecordingChange}
+            defaultValue={'live'}
           />
         </InlineField>
-        <Select
-          width={25}
-          options={options}
-          value={telemetry}
-          onChange={this.onTelemetryChange}
-          defaultValue={'Time'}
-        />
+        <Select width={25} options={options} value={telemetry} onChange={onTelemetryChange} defaultValue={'Time'} />
         <InlineField label="Enable streaming">
-          <InlineSwitch value={withStreaming || false} onChange={this.onWithStreamingChange} />
+          <InlineSwitch value={withStreaming ?? false} onChange={onWithStreamingChange} />
         </InlineField>
         <InlineField label="Graph">
-          <InlineSwitch value={graph} onChange={this.onGraphChange} />
+          <InlineSwitch value={graph} onChange={onGraphChange} />
         </InlineField>
       </div>
-    );
-  }
-}
+    </>
+  );
+};
